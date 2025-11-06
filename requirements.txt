@@ -20,3 +20,12 @@ ultralytics
 deepface
 streamlit
 prophet
+json
+pickle
+pathlib
+statsmodels
+scikit-learn
+requests
+openmeteo_requests
+requests_cache
+retry_requests
