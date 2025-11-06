@@ -19,3 +19,4 @@ keras-cv
 ultralytics
 deepface
 streamlit
+prophet
