@@ -131,6 +131,8 @@ def page_home():
 def page_mkbf():
     st.markdown("## <div style='text-align: center;'>MKBF Forecast</div>", unsafe_allow_html=True)
 
+    BASE_DIR = Path(__file__).resolve().parent  # same folder as app.py
+
     try:
         actual = pd.read_csv(ART_DIR / "actual.csv")
     except Exception:
@@ -729,4 +731,5 @@ elif selected == "Root Cause Classification":
     page_text_classification()
 elif selected == "Forecasting App":
     page_forecast_app()
+
 
