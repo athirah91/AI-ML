@@ -30,10 +30,15 @@ def get_base64_of_bin_file(bin_file: Path) -> str:
 
 
 # =========================
-# Recommended folder layout (editable root)
 # =========================
-# Change this one line if you want a different base folder
-HUB_ROOT = Path.home() / "AIML" / "GSAD_DataScienceHub"
+# Recommended folder layout (matches your repo structure)
+# =========================
+from pathlib import Path
+
+# Always use the same folder where app.py is located
+HUB_ROOT = Path(__file__).resolve().parent
+
+# Subfolders relative to app.py
 ASSETS_DIR = HUB_ROOT / "assets"
 ART_DIR = HUB_ROOT / "artifacts" / "mkbf_prophet"
 MODELS_DIR = HUB_ROOT / "models"
@@ -755,3 +760,4 @@ elif selected == "Root Cause Classification":
     page_text_classification()
 elif selected == "Forecasting App":
     page_forecast_app()
+
