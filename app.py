@@ -23,30 +23,17 @@ from streamlit_option_menu import option_menu
 import base64
 
 
-def get_base64_of_bin_file(bin_file: Path) -> str:
+def get_base64_of_bin_file(bin_file):
     with open(bin_file, "rb") as f:
         data = f.read()
     return base64.b64encode(data).decode()
 
 
 # =========================
+# Shared helpers / loaders
 # =========================
-# Recommended folder layout (matches your repo structure)
-# =========================
-from pathlib import Path
-
-# Always use the same folder where app.py is located
-HUB_ROOT = Path(__file__).resolve().parent
-
-# Subfolders relative to app.py
-ASSETS_DIR = HUB_ROOT / "assets"
-ART_DIR = HUB_ROOT / "artifacts" / "mkbf_prophet"
-MODELS_DIR = HUB_ROOT / "models"
-
-HUB_ROOT.mkdir(parents=True, exist_ok=True)
-ASSETS_DIR.mkdir(parents=True, exist_ok=True)
-ART_DIR.mkdir(parents=True, exist_ok=True)
-MODELS_DIR.mkdir(parents=True, exist_ok=True)
+APP_DIR = Path(__file__).parent
+ART_DIR = Path(r"C:\AIML\Final\artifacts\mkbf_prophet")
 
 
 @st.cache_data(show_spinner=False)
@@ -64,27 +51,12 @@ def load_metrics_json(path: Path):
         return json.loads(f.read_text())
     return None
 
-# =========================
-# Dummy data generator
-# =========================
-import pandas as pd
-import numpy as np
-
-def make_dummy_monthly():
-    """Generate dummy monthly data with clear trend + seasonality."""
-    rng = pd.date_range(start="2020-01-01", periods=48, freq="MS")  # 4 years of data
-    trend = np.linspace(100, 200, len(rng))                         # upward trend
-    seasonal = 15 * np.sin(2 * np.pi * rng.month / 12)              # yearly cycle
-    noise = np.random.normal(0, 5, len(rng))                        # random noise
-    y = trend + seasonal + noise
-    return pd.DataFrame({"ds": rng, "y": y})
-
 
 # =========================
 # Page: Home
 # =========================
 def page_home():
-    file_path = ASSETS_DIR / "qw3.jpg"
+    file_path = r"C:\Users\athirah.zahidin\AIML\AI-ML\qw3.jpg"
     bin_str = get_base64_of_bin_file(file_path)
 
     st.markdown(
@@ -129,8 +101,8 @@ def page_home():
     st.markdown(
         """
         <div class="frost-box">
-          <h1 class="gradient-text">GSAD Data Science Hub</h1>
-          <p class="subheading">Your central hub for forecasting and analytics</p>
+            <h1 class="gradient-text">GSAD Data Science Hub</h1>
+            <p class="subheading">Your central hub for forecasting and analytics</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -139,14 +111,14 @@ def page_home():
     st.markdown(
         """
         <div class="frost-box" style="margin-top:30px; padding:15px;">
-          <div style="font-size:1.1rem; font-weight:700; color:#f8fafc; margin-bottom:8px; margin-left:20px;">
-            Module Available
-          </div>
-          <ul style="color:#cbd5e1; font-size:1rem; list-style-type:disc; margin-left:20px;">
-            <li><b>MKBF Forecast</b> → View predictive charts and trends.</li>
-            <li><b>Root Cause Classification</b> → Classify incident descriptions instantly.</li>
-            <li><b>Forecasting App</b> → Upload any time series to explore & forecast.</li>
-          </ul>
+            <div style="font-size:1.1rem; font-weight:700; color:#f8fafc; margin-bottom:8px; margin-left:20px;">
+                Module Available
+            </div>
+            <ul style="color:#cbd5e1; font-size:1rem; list-style-type:disc; margin-left:20px;">
+                <li><b>MKBF Forecast</b> → View predictive charts and trends.</li>
+                <li><b>Root Cause Classification</b> → Classify incident descriptions instantly.</li>
+                <li><b>Forecasting App</b> → Upload any time series to explore & forecast.</li>
+            </ul>
         </div>
         """,
         unsafe_allow_html=True,
@@ -211,9 +183,7 @@ def page_mkbf():
     import plotly.graph_objects as go
 
     fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(x=combined["Date"], y=combined["Forecast"], mode="lines", name="Forecast", line=dict(width=3))
-    )
+    fig.add_trace(go.Scatter(x=combined["Date"], y=combined["Forecast"], mode="lines", name="Forecast", line=dict(width=3)))
     fig.add_trace(
         go.Scatter(
             x=pd.concat([combined["Date"], combined["Date"][::-1]]),
@@ -224,9 +194,7 @@ def page_mkbf():
             name="Confidence",
         )
     )
-    fig.add_trace(
-        go.Scatter(x=combined["Date"], y=combined["Actual"], mode="lines+markers", name="Actual", line=dict(width=2))
-    )
+    fig.add_trace(go.Scatter(x=combined["Date"], y=combined["Actual"], mode="lines+markers", name="Actual", line=dict(width=2)))
     fig.update_layout(title="MKBF Actual vs Forecast", xaxis_title="Date", yaxis_title="MKBF", hovermode="x unified")
     st.plotly_chart(fig, use_container_width=True)
 
@@ -240,7 +208,11 @@ def page_mkbf():
     editable_df["Date"] = editable_df["Date"].dt.strftime("%Y-%m-%d")
 
     edited_df = st.data_editor(
-        editable_df, num_rows="dynamic", use_container_width=True, hide_index=True, key="mkbf_editor"
+        editable_df,
+        num_rows="dynamic",
+        use_container_width=True,
+        hide_index=True,
+        key="mkbf_editor",
     )
 
     if st.button("💾 Save & Retrain Forecast"):
@@ -277,15 +249,12 @@ def page_mkbf():
 # =========================
 def page_text_classification():
     st.header("Root Cause Classification")
-
-    model_path = MODELS_DIR / "model.pkl"
-    vec_path = MODELS_DIR / "tfidf_vectorizer.pkl"
-    le_path = MODELS_DIR / "label_encoder.pkl"
+    model_path = APP_DIR / "model.pkl"
+    vec_path = APP_DIR / "tfidf_vectorizer.pkl"
+    le_path = APP_DIR / "label_encoder.pkl"
 
     if not (model_path.exists() and vec_path.exists() and le_path.exists()):
-        st.error(
-            "Model files not found. Place model.pkl, tfidf_vectorizer.pkl, label_encoder.pkl in the 'models' folder."
-        )
+        st.error("Model files not found. Place model.pkl, tfidf_vectorizer.pkl, label_encoder.pkl next to app.py.")
         return
 
     with open(model_path, "rb") as f:
@@ -296,7 +265,6 @@ def page_text_classification():
         label_encoder = pickle.load(f)
 
     user_text = st.text_area("Enter incident description:", height=120)
-
     if st.button("Predict Root Cause"):
         if not user_text.strip():
             st.warning("Please enter some text.")
@@ -312,11 +280,8 @@ def page_text_classification():
             label_names = label_encoder.inverse_transform(model.classes_)
 
             st.success(f"Predicted: **{predicted_label}** — Confidence: {max(proba):.1%}")
-
             top_idx = np.argsort(proba)[::-1][:3]
-            top_df = pd.DataFrame(
-                {"Class": label_names[top_idx], "Confidence": [f"{p:.1%}" for p in proba[top_idx]]}
-            )
+            top_df = pd.DataFrame({"Class": label_names[top_idx], "Confidence": [f"{p:.1%}" for p in proba[top_idx]]})
             st.dataframe(top_df, use_container_width=True)
 
 
@@ -399,7 +364,7 @@ def page_forecast_app():
 
     # Sort
     if sort_choice != "No sort":
-        ascending = sort_choice == "Ascending"
+        ascending = (sort_choice == "Ascending")
         df = df.sort_values(date_col, ascending=ascending)
 
     # Rename to ds/y for modeling
@@ -422,17 +387,14 @@ def page_forecast_app():
     st.subheader("Step 4: Resampling")
     enable_resample = st.checkbox("Enable resampling", value=False)
     freq_for_future = "D"
-
     if enable_resample:
         st.caption("Convert your calendar to Daily / Weekly / Monthly.")
         freq_map = {"Daily": "D", "Weekly": "W", "Monthly": "MS"}
-
         colr1, colr2 = st.columns(2)
         with colr1:
             new_freq_label = st.selectbox("New frequency", ["Weekly", "Monthly", "Daily"], index=1)
         with colr2:
             agg_res = st.selectbox("Aggregation when resampling", ["Mean", "Sum", "Median", "Max", "Min"], index=0)
-
         df = (
             df.set_index("ds")
             .resample(freq_map[new_freq_label])
@@ -473,19 +435,11 @@ def page_forecast_app():
     min_dt, max_dt = df["ds"].min(), df["ds"].max()
     c1, c2 = st.columns(2)
     with c1:
-        train_start = st.date_input(
-            "Training start",
-            value=min_dt.date(),
-            min_value=min_dt.date(),
-            max_value=max_dt.date(),
-        )
+        train_start = st.date_input("Training start", value=min_dt.date(), min_value=min_dt.date(), max_value=max_dt.date())
     with c2:
-        train_end = st.date_input(
-            "Training end",
-            value=(max_dt - pd.DateOffset(months=6)).date(),
-            min_value=min_dt.date(),
-            max_value=max_dt.date(),
-        )
+        train_end = st.date_input("Training end", value=(max_dt - pd.DateOffset(months=6)).date(),
+                                  min_value=min_dt.date(), max_value=max_dt.date())
+
     metrics_wanted = st.multiselect("Evaluation metrics", ["MAE", "RMSE", "MAPE", "R²"], default=["MAE", "RMSE", "MAPE"])
 
     # -----------------------------
@@ -500,13 +454,12 @@ def page_forecast_app():
         st.markdown(
             "<div style='border-left:6px solid #3b82f6;background:#f0f7ff;padding:10px 12px;margin:8px 0;'>"
             "<b>Changepoints</b><br>Where the trend is allowed to change.</div>",
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
         cp1, cp2, cp3 = st.columns(3)
         with cp1:
-            cps = st.number_input(
-                "changepoint_prior_scale", min_value=0.001, max_value=0.5, step=0.001, value=0.1, format="%.3f"
-            )
+            cps = st.number_input("changepoint_prior_scale", min_value=0.001, max_value=0.5,
+                                  step=0.001, value=0.1, format="%.3f")
         with cp2:
             ncp = st.slider("n_changepoints", min_value=0, max_value=50, value=25, step=1)
         with cp3:
@@ -515,36 +468,34 @@ def page_forecast_app():
         st.markdown(
             "<div style='border-left:6px solid #16a34a;background:#effaf3;padding:10px 12px;margin:8px 0;'>"
             "<b>Seasonality</b><br>Use multiplicative if seasonal amplitude grows with level.</div>",
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
         s1, s2, s3 = st.columns(3)
         with s1:
             seasonality_mode = st.selectbox("seasonality_mode", ["additive", "multiplicative"], index=0)
         with s2:
-            seas_prior = st.number_input("seasonality_prior_scale", min_value=0.01, max_value=10.0, value=10.0, step=0.5)
+            seas_prior = st.number_input("seasonality_prior_scale", min_value=0.01, max_value=10.0,
+                                         value=10.0, step=0.5)
         with s3:
             yearly = st.selectbox("yearly_seasonality", ["auto", "True", "False"], index=0)
-
         monthly_on = st.checkbox("Add monthly seasonality (period≈30.5)", value=False)
-        monthly_fourier = st.slider(
-            "monthly fourier_order", min_value=3, max_value=20, value=5, step=1, disabled=not monthly_on
-        )
-
+        monthly_fourier = st.slider("monthly fourier_order", min_value=3, max_value=20,
+                                    value=5, step=1, disabled=not monthly_on)
         weekly = st.selectbox("weekly_seasonality", ["auto", "True", "False"], index=0)
 
         st.markdown(
             "<div style='border-left:6px solid #ef4444;background:#fff5f5;padding:10px 12px;margin:8px 0;'>"
             "<b>Holidays</b><br>Add public/school holidays that affect demand.</div>",
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
         h1, h2 = st.columns([2, 1])
         with h1:
-            built_in_country = st.selectbox(
-                "Built-in country holidays", ["None", "Malaysia", "France", "UnitedStates", "UnitedKingdom", "India"], index=0
-            )
+            built_in_country = st.selectbox("Built-in country holidays",
+                                            ["None", "Malaysia", "France", "UnitedStates", "UnitedKingdom", "India"],
+                                            index=0)
         with h2:
-            holiday_prior = st.number_input("holidays_prior_scale", min_value=0.01, max_value=10.0, value=10.0, step=0.5)
-
+            holiday_prior = st.number_input("holidays_prior_scale", min_value=0.01, max_value=10.0,
+                                            value=10.0, step=0.5)
         up_h = st.file_uploader(
             "Or upload holidays CSV (columns: ds, holiday, [lower_window, upper_window])", type=["csv"]
         )
@@ -683,7 +634,6 @@ def page_forecast_app():
 
         else:
             ts_all = df.set_index("ds")["y"]
-
             if model_choice == "Exponential Smoothing":
                 model = ExponentialSmoothing(
                     ts_all,
@@ -693,7 +643,8 @@ def page_forecast_app():
                 )
                 fit = model.fit(optimized=True)
                 future_index = pd.date_range(
-                    ts_all.index[-1] + (pd.offsets.MonthBegin() if freq_for_future in ["MS", "M"] else pd.Timedelta(days=1)),
+                    ts_all.index[-1] + (pd.offsets.MonthBegin() if freq_for_future in ["MS", "M"]
+                                        else pd.Timedelta(days=1)),
                     periods=horizon,
                     freq=freq_for_future,
                 )
@@ -702,23 +653,25 @@ def page_forecast_app():
             elif model_choice == "ARIMA":
                 fit = ARIMA(ts_all, order=(1, 1, 1)).fit()
                 future_index = pd.date_range(
-                    ts_all.index[-1] + (pd.offsets.MonthBegin() if freq_for_future in ["MS", "M"] else pd.Timedelta(days=1)),
+                    ts_all.index[-1] + (pd.offsets.MonthBegin() if freq_for_future in ["MS", "M"]
+                                        else pd.Timedelta(days=1)),
                     periods=horizon,
                     freq=freq_for_future,
                 )
                 yhat = fit.forecast(horizon)
 
-            else:  # SARIMA
+            else:
                 m_seas = 12 if freq_for_future in ["MS", "M"] else 7 if freq_for_future == "W" else 0
                 fit = SARIMAX(
                     ts_all,
                     order=(1, 1, 1),
-                    seasonal_order=(1, 1, 1, m_seas) if m_seas else (0, 0, 0, 0),
+                    seasonal_order=((1, 1, 1, m_seas) if m_seas else (0, 0, 0, 0)),
                     enforce_stationarity=False,
                     enforce_invertibility=False,
                 ).fit(disp=False)
                 future_index = pd.date_range(
-                    ts_all.index[-1] + (pd.offsets.MonthBegin() if freq_for_future in ["MS", "M"] else pd.Timedelta(days=1)),
+                    ts_all.index[-1] + (pd.offsets.MonthBegin() if freq_for_future in ["MS", "M"]
+                                        else pd.Timedelta(days=1)),
                     periods=horizon,
                     freq=freq_for_future,
                 )
@@ -730,6 +683,7 @@ def page_forecast_app():
             ax.plot(future_index, yhat, label="Forecast", linestyle="--")
             ax.legend()
             st.pyplot(fig)
+
             out_df = pd.DataFrame({"ds": future_index, "yhat": yhat})
 
         st.download_button(
@@ -775,5 +729,3 @@ elif selected == "Root Cause Classification":
     page_text_classification()
 elif selected == "Forecasting App":
     page_forecast_app()
-
-
