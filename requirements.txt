@@ -4,8 +4,9 @@ numpy
 matplotlib
 plotly
 seaborn
-prophet==1.1.6
 cmdstanpy
 statsmodels
 scikit-learn
 streamlit-option-menu
+prophet==1.1.5
+pystan==3.7.0
