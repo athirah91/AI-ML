@@ -57,7 +57,7 @@ def load_metrics_json(path: Path):
 # Page: Home
 # =========================
 def page_home():
-    file_path = "qw3.jpg"
+    file_path = "assets/qw3.jpg"
     bin_str = get_base64_of_bin_file(file_path)
 
     st.markdown(
@@ -732,6 +732,7 @@ elif selected == "Root Cause Classification":
     page_text_classification()
 elif selected == "Forecasting App":
     page_forecast_app()
+
 
 
 
