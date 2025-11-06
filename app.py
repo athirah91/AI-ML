@@ -51,6 +51,30 @@ def load_metrics_json(path: Path):
         return json.loads(f.read_text())
     return None
 
+# =========================
+# Helper: Dummy monthly dataset
+# =========================
+def make_dummy_monthly():
+    """
+    Generate a simple dummy monthly dataset for demonstration.
+    Useful for testing the Forecasting App when no CSV is uploaded.
+    """
+    # Create 3 years of monthly data
+    dates = pd.date_range(start="2022-01-01", periods=36, freq="MS")
+
+    # Create synthetic trend + seasonality + noise
+    trend = np.linspace(100, 180, len(dates))  # upward trend
+    seasonal = 15 * np.sin(2 * np.pi * dates.month / 12)  # yearly seasonality
+    noise = np.random.normal(0, 3, len(dates))  # random noise
+
+    values = trend + seasonal + noise
+
+    df_dummy = pd.DataFrame({
+        "Date": dates,
+        "Value": np.round(values, 2)
+    })
+    df_dummy.rename(columns={"Date": "ds", "Value": "y"}, inplace=True)
+    return df_dummy
 
 # =========================
 # Page: Home
@@ -729,4 +753,5 @@ elif selected == "Root Cause Classification":
     page_text_classification()
 elif selected == "Forecasting App":
     page_forecast_app()
+
 
