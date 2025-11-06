@@ -1,7 +1,3 @@
-# =========================================================
-# app.py — GSAD Data Science Hub (GitHub-Ready Version)
-# =========================================================
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -17,6 +13,7 @@ from statsmodels.tsa.holtwinters import SimpleExpSmoothing, ExponentialSmoothing
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.stattools import adfuller
 
 # --- Page config ---
 st.set_page_config(page_title="GSAD Data Science Hub", layout="wide")
@@ -24,26 +21,22 @@ st.set_page_config(page_title="GSAD Data Science Hub", layout="wide")
 from streamlit_option_menu import option_menu
 import base64
 
-# =========================================================
-# Path setup (Relative to repo)
-# =========================================================
-APP_DIR = Path(__file__).parent
-ASSET_DIR = APP_DIR / "assets"
-MODEL_DIR = APP_DIR / "models"
-ART_DIR = APP_DIR / "artifacts" / "mkbf_prophet"
 
-# Auto-create folders if missing (safeguard)
-for folder in [ASSET_DIR, MODEL_DIR, ART_DIR]:
-    folder.mkdir(parents=True, exist_ok=True)
-
-# =========================================================
-# Shared helpers / loaders
-# =========================================================
+# =========================
+# Helper: Base64 encode image
+# =========================
 def get_base64_of_bin_file(bin_file):
-    """Convert image to base64 for Streamlit background."""
     with open(bin_file, "rb") as f:
         data = f.read()
     return base64.b64encode(data).decode()
+
+
+# =========================
+# Shared helpers / loaders
+# =========================
+APP_DIR = Path(__file__).parent
+ART_DIR = APP_DIR / "artifacts" / "mkbf_prophet"
+
 
 @st.cache_data(show_spinner=False)
 def load_df_csv(path: Path, filename: str):
@@ -51,6 +44,7 @@ def load_df_csv(path: Path, filename: str):
     if f.exists():
         return pd.read_csv(f, parse_dates=["ds"])
     return None
+
 
 @st.cache_data(show_spinner=False)
 def load_metrics_json(path: Path):
@@ -60,15 +54,11 @@ def load_metrics_json(path: Path):
     return None
 
 
-# =========================================================
+# =========================
 # Page: Home
-# =========================================================
+# =========================
 def page_home():
-    file_path = ASSET_DIR / "qw3.jpg"
-    if not file_path.exists():
-        st.warning("⚠️ Background image not found in 'assets/qw3.jpg'")
-        return
-
+    file_path = "assets/qw3.jpg"
     bin_str = get_base64_of_bin_file(file_path)
 
     st.markdown(
@@ -136,167 +126,152 @@ def page_home():
         unsafe_allow_html=True,
     )
 
-
-# =========================================================
+# =========================
 # Page: MKBF Forecast
-# =========================================================
+# =========================
 def page_mkbf():
-    st.markdown("## <div style='text-align: center;'>MKBF Forecast</div>", unsafe_allow_html=True)
+    st.title("📈 MKBF Forecast Dashboard")
 
+    # --- Load actual data ---
     try:
         actual = pd.read_csv(ART_DIR / "actual.csv")
-    except FileNotFoundError:
-        st.error(f"❌ Cannot find 'actual.csv' in {ART_DIR}. Make sure it exists in your repo.")
-        st.stop()
-
-    # Clean columns
-    actual.columns = [c.strip() for c in actual.columns]
-    if set(["ds", "y"]).issubset(actual.columns):
-        actual = actual.rename(columns={"ds": "Date", "y": "Value"})
-    elif not set(["Date", "Value"]).issubset(actual.columns):
-        st.error("❌ 'actual.csv' must contain either ['Date','Value'] or ['ds','y'] columns.")
+    except Exception:
+        st.error("❌ Cannot find 'actual.csv' in artifacts folder.")
         return
 
-    actual["Date"] = pd.to_datetime(actual["Date"], errors="coerce")
-    actual = actual.dropna(subset=["Date", "Value"]).sort_values("Date")
+    actual["Date"] = pd.to_datetime(actual["Date"])
+    actual["Value"] = pd.to_numeric(actual["Value"], errors="coerce")
 
-    # Train Prophet
-    st.info("🔁 Training Prophet model on the latest actual data...")
-    df_train = actual.rename(columns={"Date": "ds", "Value": "y"})
-    m = Prophet(
-        changepoint_prior_scale=0.1,
-        changepoint_range=0.95,
-        seasonality_mode="multiplicative",
-        yearly_seasonality=True,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        seasonality_prior_scale=10.0,
-    )
-    m.fit(df_train)
-
-    horizon = st.slider("Forecast horizon (months ahead)", 6, 36, 12)
-    future = m.make_future_dataframe(periods=horizon, freq="MS")
-    forecast = m.predict(future)
-
-    # Combine
-    combined = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].merge(df_train, on="ds", how="left")
-    combined = combined.rename(
-        columns={
-            "ds": "Date",
-            "y": "Actual",
-            "yhat": "Forecast",
-            "yhat_lower": "Lower Bound",
-            "yhat_upper": "Upper Bound",
-        }
+    # --- Sidebar options ---
+    model_choice = st.selectbox(
+        "Select Forecast Model",
+        ["Prophet", "ARIMA", "SARIMA", "Holt-Winters"],
     )
 
-    # Plot
-    import plotly.graph_objects as go
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=combined["Date"], y=combined["Forecast"], mode="lines", name="Forecast", line=dict(width=3)))
-    fig.add_trace(
-        go.Scatter(
-            x=pd.concat([combined["Date"], combined["Date"][::-1]]),
-            y=pd.concat([combined["Upper Bound"], combined["Lower Bound"][::-1]]),
-            fill="toself",
-            fillcolor="rgba(135,206,235,0.25)",
-            line=dict(width=0),
-            name="Confidence",
+    forecast_horizon = st.slider("Forecast Horizon (months)", 1, 12, 6)
+
+    # --- Show actual data preview ---
+    with st.expander("🔍 Show raw actual data"):
+        st.dataframe(actual.tail(10))
+
+    st.markdown("---")
+
+    # --- Prophet Model ---
+    if model_choice == "Prophet":
+        st.info("🔁 Training Prophet model on the latest actual data...")
+
+        df_train = actual.rename(columns={"Date": "ds", "Value": "y"})
+        m = Prophet(
+            changepoint_prior_scale=0.1,
+            changepoint_range=0.95,
+            seasonality_mode="multiplicative",
+            yearly_seasonality=True,
+            weekly_seasonality=False,
+            daily_seasonality=False,
         )
-    )
-    fig.add_trace(go.Scatter(x=combined["Date"], y=combined["Actual"], mode="lines+markers", name="Actual", line=dict(width=2)))
-    fig.update_layout(title="MKBF Actual vs Forecast", xaxis_title="Date", yaxis_title="MKBF", hovermode="x unified")
-    st.plotly_chart(fig, use_container_width=True)
 
-    # Editable table
-    st.subheader("✏️ Update MKBF Actual Data")
-    editable_df = actual.copy()
-    editable_df["Date"] = editable_df["Date"].dt.strftime("%Y-%m-%d")
-
-    edited_df = st.data_editor(editable_df, num_rows="dynamic", use_container_width=True, hide_index=True)
-
-    if st.button("💾 Save & Retrain Forecast"):
         try:
-            edited_df["Date"] = pd.to_datetime(edited_df["Date"], errors="coerce")
-            if edited_df["Date"].isna().any() or edited_df["Value"].isna().any():
-                st.warning("⚠️ Invalid dates or missing values detected.")
-            else:
-                edited_df.to_csv(ART_DIR / "actual.csv", index=False)
-                st.cache_data.clear()
-                st.success("✅ Saved successfully! Retraining Prophet...")
-                st.experimental_rerun()
+            m.fit(df_train)
         except Exception as e:
-            st.error(f"❌ Error saving: {e}")
+            st.error(f"⚠️ Prophet model training failed: {e}")
+            return
 
-    # Downloads
-    with st.expander("📂 Download Data"):
-        st.download_button("Download Combined (Actual + Forecast)", data=combined.to_csv(index=False),
-                           file_name="combined_forecast.csv", mime="text/csv")
-        st.download_button("Download actual.csv", data=edited_df.to_csv(index=False),
-                           file_name="actual.csv", mime="text/csv")
+        future = m.make_future_dataframe(periods=forecast_horizon, freq="M")
+        forecast = m.predict(future)
 
+        # Plot
+        fig1 = m.plot(forecast)
+        st.pyplot(fig1)
 
-# =========================================================
-# Root Cause Classification
-# =========================================================
-def page_text_classification():
-    st.header("Root Cause Classification")
-    model_path = MODEL_DIR / "model.pkl"
-    vec_path = MODEL_DIR / "tfidf_vectorizer.pkl"
-    le_path = MODEL_DIR / "label_encoder.pkl"
+        fig2 = m.plot_components(forecast)
+        st.pyplot(fig2)
 
-    if not (model_path.exists() and vec_path.exists() and le_path.exists()):
-        st.error("⚠️ Model files not found in 'models/'. Place model.pkl, tfidf_vectorizer.pkl, and label_encoder.pkl inside /models.")
-        return
+        st.success("✅ Prophet forecast generated successfully!")
 
-    with open(model_path, "rb") as f:
-        model = pickle.load(f)
-    with open(vec_path, "rb") as f:
-        vectorizer = pickle.load(f)
-    with open(le_path, "rb") as f:
-        label_encoder = pickle.load(f)
+        # Save outputs
+        (ART_DIR / "output").mkdir(exist_ok=True)
+        forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].to_csv(
+            ART_DIR / "output" / "prophet_forecast.csv", index=False
+        )
 
-    user_text = st.text_area("Enter incident description:", height=120)
-    if st.button("Predict Root Cause"):
-        if not user_text.strip():
-            st.warning("Please enter some text.")
-        else:
-            features = vectorizer.transform([user_text])
-            proba = model.predict_proba(features)[0] if hasattr(model, "predict_proba") else np.ones(len(model.classes_)) / len(model.classes_)
-            encoded_pred = model.predict(features)[0]
-            predicted_label = label_encoder.inverse_transform([encoded_pred])[0]
-            label_names = label_encoder.inverse_transform(model.classes_)
+    # --- ARIMA Model ---
+    elif model_choice == "ARIMA":
+        st.info("🔁 Training ARIMA model...")
+        df = actual.set_index("Date")["Value"]
 
-            st.success(f"Predicted: **{predicted_label}** — Confidence: {max(proba):.1%}")
-            top_idx = np.argsort(proba)[::-1][:3]
-            top_df = pd.DataFrame({"Class": label_names[top_idx], "Confidence": [f"{p:.1%}" for p in proba[top_idx]]})
-            st.dataframe(top_df, use_container_width=True)
+        try:
+            model = ARIMA(df, order=(1, 1, 1))
+            fitted = model.fit()
+            pred = fitted.get_forecast(steps=forecast_horizon)
+            pred_ci = pred.conf_int()
+        except Exception as e:
+            st.error(f"⚠️ ARIMA model failed: {e}")
+            return
 
+        # Plot
+        fig, ax = plt.subplots(figsize=(10, 5))
+        df.plot(ax=ax, label="Observed")
+        pred.predicted_mean.plot(ax=ax, label="Forecast", color="orange")
+        ax.fill_between(
+            pred_ci.index,
+            pred_ci.iloc[:, 0],
+            pred_ci.iloc[:, 1],
+            color="gray",
+            alpha=0.3,
+        )
+        ax.legend()
+        st.pyplot(fig)
+        st.success("✅ ARIMA forecast generated successfully!")
 
-# =========================================================
-# Sidebar Navigation
-# =========================================================
-with st.sidebar:
-    selected = option_menu(
-        None,
-        ["Home", "MKBF Forecast", "Root Cause Classification"],
-        icons=["house", "graph-up", "chat-text"],
-        menu_icon="list",
-        default_index=0,
-        styles={
-            "container": {"padding": "0.5rem", "background-color": "#161a1d", "border-radius": "16px"},
-            "icon": {"color": "#FAFAFA", "font-size": "1.1rem"},
-            "nav-link": {"font-size": "1rem", "color": "#FAFAFA", "padding": "0.6rem 0.8rem", "border-radius": "12px", "margin": "6px 8px"},
-            "nav-link-selected": {"background-color": "#1f77b4", "color": "white"},
-        },
-    )
+    # --- SARIMA Model ---
+    elif model_choice == "SARIMA":
+        st.info("🔁 Training SARIMA model...")
+        df = actual.set_index("Date")["Value"]
 
-# =========================================================
-# Router
-# =========================================================
-if selected == "Home":
-    page_home()
-elif selected == "MKBF Forecast":
-    page_mkbf()
-elif selected == "Root Cause Classification":
-    page_text_classification()
+        try:
+            model = SARIMAX(df, order=(1, 1, 1), seasonal_order=(1, 1, 0, 12))
+            fitted = model.fit(disp=False)
+            pred = fitted.get_forecast(steps=forecast_horizon)
+            pred_ci = pred.conf_int()
+        except Exception as e:
+            st.error(f"⚠️ SARIMA model failed: {e}")
+            return
+
+        # Plot
+        fig, ax = plt.subplots(figsize=(10, 5))
+        df.plot(ax=ax, label="Observed")
+        pred.predicted_mean.plot(ax=ax, label="Forecast", color="orange")
+        ax.fill_between(
+            pred_ci.index,
+            pred_ci.iloc[:, 0],
+            pred_ci.iloc[:, 1],
+            color="gray",
+            alpha=0.3,
+        )
+        ax.legend()
+        st.pyplot(fig)
+        st.success("✅ SARIMA forecast generated successfully!")
+
+    # --- Holt-Winters Model ---
+    elif model_choice == "Holt-Winters":
+        st.info("🔁 Training Holt-Winters model...")
+        df = actual.set_index("Date")["Value"]
+
+        try:
+            model = ExponentialSmoothing(
+                df, trend="add", seasonal="add", seasonal_periods=12
+            )
+            fitted = model.fit()
+            forecast = fitted.forecast(forecast_horizon)
+        except Exception as e:
+            st.error(f"⚠️ Holt-Winters model failed: {e}")
+            return
+
+        # Plot
+        fig, ax = plt.subplots(figsize=(10, 5))
+        df.plot(ax=ax, label="Observed")
+        forecast.plot(ax=ax, label="Forecast", color="orange")
+        ax.legend()
+        st.pyplot(fig)
+        st.success("✅ Holt-Winters forecast generated successfully!")
+
