@@ -32,8 +32,9 @@ def get_base64_of_bin_file(bin_file):
 # =========================
 # Shared helpers / loaders
 # =========================
+
 APP_DIR = Path(__file__).parent
-ART_DIR = Path(r"C:\AIML\Final\artifacts\mkbf_prophet")
+ART_DIR = APP_DIR / "artifacts" / "mkbf_prophet"
 
 
 @st.cache_data(show_spinner=False)
@@ -731,5 +732,6 @@ elif selected == "Root Cause Classification":
     page_text_classification()
 elif selected == "Forecasting App":
     page_forecast_app()
+
 
 
