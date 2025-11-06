@@ -64,6 +64,21 @@ def load_metrics_json(path: Path):
         return json.loads(f.read_text())
     return None
 
+# =========================
+# Dummy data generator
+# =========================
+import pandas as pd
+import numpy as np
+
+def make_dummy_monthly():
+    """Generate dummy monthly data with clear trend + seasonality."""
+    rng = pd.date_range(start="2020-01-01", periods=48, freq="MS")  # 4 years of data
+    trend = np.linspace(100, 200, len(rng))                         # upward trend
+    seasonal = 15 * np.sin(2 * np.pi * rng.month / 12)              # yearly cycle
+    noise = np.random.normal(0, 5, len(rng))                        # random noise
+    y = trend + seasonal + noise
+    return pd.DataFrame({"ds": rng, "y": y})
+
 
 # =========================
 # Page: Home
@@ -760,4 +775,5 @@ elif selected == "Root Cause Classification":
     page_text_classification()
 elif selected == "Forecasting App":
     page_forecast_app()
+
 
