@@ -33,7 +33,7 @@ def get_base64_of_bin_file(bin_file):
 # Shared helpers / loaders
 # =========================
 APP_DIR = Path(__file__).parent
-ART_DIR = Path(r"C:\AIML\Final\artifacts\mkbf_prophet")
+ART_DIR = Path("artifacts\mkbf_prophet")
 
 
 @st.cache_data(show_spinner=False)
@@ -56,7 +56,7 @@ def load_metrics_json(path: Path):
 # Page: Home
 # =========================
 def page_home():
-    file_path = r"C:\Users\athirah.zahidin\AIML\AI-ML\qw3.jpg"
+    file_path = "assets\qw3.jpg"
     bin_str = get_base64_of_bin_file(file_path)
 
     st.markdown(
@@ -729,3 +729,4 @@ elif selected == "Root Cause Classification":
     page_text_classification()
 elif selected == "Forecasting App":
     page_forecast_app()
+
