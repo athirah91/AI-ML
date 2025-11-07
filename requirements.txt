@@ -8,5 +8,8 @@ cmdstanpy
 statsmodels
 scikit-learn
 streamlit-option-menu
-prophet==1.1.5
-pystan==3.7.0
+prophet
+pystan
+pickle
+pathlib
+
